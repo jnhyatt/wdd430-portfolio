@@ -1,4 +1,10 @@
-import Link from "next/link";
+import { NavLinks } from "./NavLinks";
+
+const links = [
+  { label: "Home", url: "/" },
+  { label: "About", url: "/about" },
+  { label: "Projects", url: "/projects" },
+];
 
 export default function Header() {
   return (
@@ -7,23 +13,7 @@ export default function Header() {
         <div id="header-title" className="text-2xl font-bold">
           Josh Hyatt
         </div>
-        <nav>
-          <ul className="flex gap-6">
-            <li>
-              <Link href="/" className="transition-colors hover:text-blue-200">
-                Home
-              </Link>
-            </li>
-            <li>
-              <Link
-                href="/about"
-                className="transition-colors hover:text-blue-200"
-              >
-                About
-              </Link>
-            </li>
-          </ul>
-        </nav>
+        <NavLinks links={links} />
       </div>
     </header>
   );
