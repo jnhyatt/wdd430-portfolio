@@ -41,6 +41,7 @@ function NavLink({ label, href, active }: NavLinkProps) {
           "transition-colors hover:text-blue-200",
           active && "font-bold underline",
         )}
+        aria-current={active && "page"}
       >
         {label}
       </Link>
