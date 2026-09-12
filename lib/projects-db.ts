@@ -4,7 +4,7 @@ export interface Project {
   description: string;
   type: "opensource" | "school";
   technologies: string[];
-  link?: string;
+  link: string;
 }
 
 export const projects: Project[] = [

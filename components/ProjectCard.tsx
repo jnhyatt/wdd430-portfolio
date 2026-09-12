@@ -2,7 +2,7 @@ export interface ProjectCardProps {
   title: string;
   description: string;
   technologies: string[];
-  link?: string;
+  link: string;
 }
 
 export default function ProjectCard({
@@ -18,18 +18,17 @@ export default function ProjectCard({
       <p className="text-sm text-gray-300">
         <strong>Technologies:</strong> {technologies.join(", ")}
       </p>
-      {link && (
-        <p className="mt-2">
-          <a
-            href={link}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-blue-300 hover:underline"
-          >
-            View Project
-          </a>
-        </p>
-      )}
+
+      <p className="mt-2">
+        <a
+          href={link}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-blue-300 hover:underline"
+        >
+          View Project
+        </a>
+      </p>
     </article>
   );
 }
