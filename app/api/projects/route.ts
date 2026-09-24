@@ -3,7 +3,7 @@ import { NextRequest } from "next/server";
 
 export async function GET(request: NextRequest) {
   return new Response(
-    JSON.stringify(getProjects(request.nextUrl.searchParams.get("type"))),
+    JSON.stringify(await getProjects(request.nextUrl.searchParams.get("type"))),
     { headers: { "Content-Type": "application/json" } },
   );
 }

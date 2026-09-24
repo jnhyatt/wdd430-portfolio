@@ -9,7 +9,7 @@ export async function GET(
   if (isNaN(id)) {
     return new Response(null, { status: 400 });
   }
-  const project = getProjectById(id);
+  const project = await getProjectById(id);
   if (project == null) {
     return new Response(null, { status: 404 });
   }
