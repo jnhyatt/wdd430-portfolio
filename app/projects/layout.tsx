@@ -21,6 +21,14 @@ export default function ProjectsLayout({ children }: LayoutProps<"/projects">) {
               Settings
             </Link>
           </li>
+          <li className="ml-auto">
+            <Link
+              href="/projects/create"
+              className="rounded bg-blue-600 px-3 py-1 text-white transition-colors hover:bg-blue-500"
+            >
+              New Project
+            </Link>
+          </li>
         </ul>
       </nav>
       {children}

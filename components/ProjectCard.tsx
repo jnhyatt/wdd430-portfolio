@@ -1,4 +1,9 @@
+import Link from "next/link";
+import DeleteProjectButton from "./DeleteProjectButton";
+
 export interface ProjectCardProps {
+  // Only projects from the database can be edited or deleted.
+  id?: number;
   title: string;
   description: string;
   technologies: string[];
@@ -6,6 +11,7 @@ export interface ProjectCardProps {
 }
 
 export default function ProjectCard({
+  id,
   title,
   description,
   technologies,
@@ -19,7 +25,7 @@ export default function ProjectCard({
         <strong>Technologies:</strong> {technologies.join(", ")}
       </p>
 
-      <p className="mt-2">
+      <div className="mt-2 flex gap-4">
         <a
           href={link}
           target="_blank"
@@ -28,7 +34,18 @@ export default function ProjectCard({
         >
           View Project
         </a>
-      </p>
+        {id != null && (
+          <>
+            <Link
+              href={`/projects/${id}/edit`}
+              className="text-blue-300 hover:underline"
+            >
+              Edit
+            </Link>
+            <DeleteProjectButton id={id} title={title} />
+          </>
+        )}
+      </div>
     </article>
   );
 }

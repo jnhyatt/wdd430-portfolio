@@ -1,0 +1,250 @@
+diff --git a/app/projects/page.tsx b/app/projects/page.tsx
+index 5e87429..a33c048 100644
+--- a/app/projects/page.tsx
++++ b/app/projects/page.tsx
+@@ -1,13 +1,35 @@
+ import { Suspense } from "react";
++import FilteredProjectsView from "@/components/FilteredProjectsView";
++import Pagination from "@/components/Pagination";
+ import ProjectListSkeleton from "@/components/ProjectListSkeleton";
+-import ProjectsView from "@/components/ProjectsView";
++import ProjectSearch from "@/components/ProjectSearch";
++import { fetchProjectsPages } from "@/lib/projects-db";
++
++export default async function Projects(props: PageProps<"/projects">) {
++  const searchParams = await props.searchParams;
++  const query =
++    typeof searchParams.query === "string" ? searchParams.query : "";
++  const page = Number(searchParams.page);
++  const totalPages = await fetchProjectsPages(query);
++  const currentPage = Math.min(
++    Number.isInteger(page) && page > 0 ? page : 1,
++    Math.max(totalPages, 1),
++  );
+ 
+-export default function Projects() {
+   return (
+     <main>
+       <h2 className="pb-4 text-3xl">Projects Overview</h2>
+-      <Suspense fallback={<ProjectListSkeleton />}>
+-        <ProjectsView />
++      <Suspense>
++        <ProjectSearch />
++      </Suspense>
++      <Suspense
++        key={`${query}:${currentPage}`}
++        fallback={<ProjectListSkeleton />}
++      >
++        <FilteredProjectsView query={query} currentPage={currentPage} />
++      </Suspense>
++      <Suspense>
++        <Pagination totalPages={totalPages} />
+       </Suspense>
+     </main>
+   );
+diff --git a/components/FilteredProjectsView.tsx b/components/FilteredProjectsView.tsx
+new file mode 100644
+index 0000000..553db99
+--- /dev/null
++++ b/components/FilteredProjectsView.tsx
+@@ -0,0 +1,18 @@
++import ProjectList from "./ProjectList";
++import { fetchFilteredProjects } from "@/lib/projects-db";
++
++export interface FilteredProjectsViewProps {
++  query: string;
++  currentPage: number;
++}
++
++export default async function FilteredProjectsView({
++  query,
++  currentPage,
++}: FilteredProjectsViewProps) {
++  const projects = await fetchFilteredProjects(query, currentPage);
++  if (projects.length === 0) {
++    return <p className="text-gray-400">No projects found.</p>;
++  }
++  return <ProjectList projects={projects} />;
++}
+diff --git a/components/Pagination.tsx b/components/Pagination.tsx
+new file mode 100644
+index 0000000..e7fac6e
+--- /dev/null
++++ b/components/Pagination.tsx
+@@ -0,0 +1,61 @@
++"use client";
++
++import Link from "next/link";
++import { usePathname, useSearchParams } from "next/navigation";
++
++export interface PaginationProps {
++  totalPages: number;
++}
++
++export default function Pagination({ totalPages }: PaginationProps) {
++  const pathname = usePathname();
++  const searchParams = useSearchParams();
++  const currentPage = Number(searchParams.get("page")) || 1;
++
++  const createPageURL = (pageNumber: number) => {
++    const params = new URLSearchParams(searchParams);
++    params.set("page", pageNumber.toString());
++    return `${pathname}?${params.toString()}`;
++  };
++
++  if (totalPages <= 1) return null;
++
++  return (
++    <nav aria-label="Pagination" className="mt-6 flex items-center gap-4">
++      <PageLink
++        href={createPageURL(currentPage - 1)}
++        label="Previous"
++        disabled={currentPage <= 1}
++      />
++      <span>
++        Page {currentPage} of {totalPages}
++      </span>
++      <PageLink
++        href={createPageURL(currentPage + 1)}
++        label="Next"
++        disabled={currentPage >= totalPages}
++      />
++    </nav>
++  );
++}
++
++interface PageLinkProps {
++  href: string;
++  label: string;
++  disabled: boolean;
++}
++
++function PageLink({ href, label, disabled }: PageLinkProps) {
++  if (disabled) {
++    return (
++      <span aria-disabled="true" className="text-gray-600">
++        {label}
++      </span>
++    );
++  }
++  return (
++    <Link href={href} className="transition-colors hover:text-blue-200">
++      {label}
++    </Link>
++  );
++}
+diff --git a/components/ProjectSearch.tsx b/components/ProjectSearch.tsx
+new file mode 100644
+index 0000000..8aa0d3c
+--- /dev/null
++++ b/components/ProjectSearch.tsx
+@@ -0,0 +1,45 @@
++"use client";
++
++import { useEffect, useRef } from "react";
++import { usePathname, useRouter, useSearchParams } from "next/navigation";
++
++const DEBOUNCE_MS = 300;
++
++export default function ProjectSearch() {
++  const searchParams = useSearchParams();
++  const pathname = usePathname();
++  const { replace } = useRouter();
++  const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
++
++  useEffect(() => () => clearTimeout(timer.current), []);
++
++  function handleSearch(term: string) {
++    clearTimeout(timer.current);
++    timer.current = setTimeout(() => {
++      const params = new URLSearchParams(searchParams);
++      params.set("page", "1");
++      if (term) {
++        params.set("query", term);
++      } else {
++        params.delete("query");
++      }
++      replace(`${pathname}?${params.toString()}`);
++    }, DEBOUNCE_MS);
++  }
++
++  return (
++    <div className="mb-4">
++      <label htmlFor="project-search" className="sr-only">
++        Search projects
++      </label>
++      <input
++        id="project-search"
++        type="search"
++        placeholder="Search projects..."
++        defaultValue={searchParams.get("query") ?? ""}
++        onChange={(e) => handleSearch(e.target.value)}
++        className="w-full rounded border border-gray-700 bg-gray-800 px-3 py-2 placeholder:text-gray-500"
++      />
++    </div>
++  );
++}
+diff --git a/lib/projects-db.ts b/lib/projects-db.ts
+index 2d8da0d..80b3103 100644
+--- a/lib/projects-db.ts
++++ b/lib/projects-db.ts
+@@ -49,3 +49,59 @@ export async function getProjectById(id: number): Promise<Project | null> {
+   `;
+   return rows[0] ?? null;
+ }
++
++export const ITEMS_PER_PAGE = 6;
++
++// Escape LIKE wildcards so user input is matched literally.
++function toLikePattern(query: string): string {
++  return `%${query.replace(/[\\%_]/g, "\\$&")}%`;
++}
++
++export async function fetchFilteredProjects(
++  query: string,
++  currentPage: number,
++): Promise<Project[]> {
++  const pattern = toLikePattern(query);
++  const offset = (currentPage - 1) * ITEMS_PER_PAGE;
++  const { rows } = await sql<Project>`
++    select
++      p.id,
++      p.title,
++      p.description,
++      p.type,
++      p.link,
++      array(
++        select t.technology
++        from project_technologies t
++        where t.project_id = p.id
++        order by t.technology
++      ) as technologies
++    from projects p
++    where p.title ilike ${pattern}
++      or p.description ilike ${pattern}
++      or exists (
++        select 1
++        from project_technologies t
++        where t.project_id = p.id and t.technology ilike ${pattern}
++      )
++    order by p.id
++    limit ${ITEMS_PER_PAGE} offset ${offset}
++  `;
++  return rows;
++}
++
++export async function fetchProjectsPages(query: string): Promise<number> {
++  const pattern = toLikePattern(query);
++  const { rows } = await sql<{ count: string }>`
++    select count(*) as count
++    from projects p
++    where p.title ilike ${pattern}
++      or p.description ilike ${pattern}
++      or exists (
++        select 1
++        from project_technologies t
++        where t.project_id = p.id and t.technology ilike ${pattern}
++      )
++  `;
++  return Math.ceil(Number(rows[0].count) / ITEMS_PER_PAGE);
++}
